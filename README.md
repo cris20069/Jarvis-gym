@@ -2,4 +2,4 @@
 
 Trainingstagebuch als Web-App fürs Handy. Läuft komplett im Browser, ohne Server und ohne KI. Deine Daten bleiben auf deinem Gerät.
 
-Schrift: die Systemschrift des Geräts (SF Pro auf dem iPhone), deshalb keine Schriftdateien.
+Schriften: Big Shoulders Display, Geist und Geist Mono (SIL Open Font License, siehe `fonts/`).
