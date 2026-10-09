@@ -770,7 +770,9 @@ function summaryPanel() {
       diff !== null && fact('vs. letztes Mal', `${diff > 0 ? '+' : ''}${diff} %`, diff >= 0 ? 'rec' : '')),
     prs.length > 0 && h('div', { class: 'prs' }, prs.map(s => h('span', { class: 'pr' }, icon(I.trophy, 12), `${s.ex} ${fmtKg(s.kg)} kg`))),
     h('div', { class: 'hint' }, diff === null ? 'Erstes Training mit diesem Plan – ab jetzt vergleicht die App.' : diff >= 0 ? 'Mehr bewegt als beim letzten Mal. Weiter so.' : 'Etwas weniger als letztes Mal – Erholung zählt auch.'),
-    h('button', { class: 'btn sm', style: 'width:100%;margin-top:4px', onclick: () => { summary = null; render(); } }, 'Schließen'));
+    h('div', { class: 'row', style: 'margin-top:4px' },
+      h('button', { class: 'btn sm primary', onclick: sendToJarvis }, 'An Jarvis senden'),
+      h('button', { class: 'btn sm', onclick: () => { summary = null; render(); } }, 'Schließen')));
 }
 
 /* ---------- timers ---------- */
@@ -1132,7 +1134,7 @@ function viewPlaene() {
         h('button', { class: 'btn sm danger', onclick: () => { if (confirm(`Plan „${p.name}“ löschen?`)) { S.plans = S.plans.filter(x => x !== p); save(); render(); } } }, 'Löschen'))));
   });
   list.append(h('button', { class: 'btn ghost', onclick: () => { S.plans.push({ id: uid(), name: 'Neuer Plan', exercises: [] }); save(); render(); } }, icon(I.plus, 18), 'Neuer Plan'));
-  out.push(list, sec('Einstellungen'), settingsCard(), sec('Backup'), backupCard());
+  out.push(list, sec('Jarvis'), jarvisCard(), sec('Einstellungen'), settingsCard(), sec('Backup'), backupCard());
   return out;
 }
 
@@ -1292,6 +1294,42 @@ function viewFortschritt() {
       p.s.kg > 0 ? h('div', { class: 'prv' }, fmtKg(p.s.kg), h('small', {}, `kg × ${p.s.reps}`)) : h('div', { class: 'prv' }, p.s.reps, h('small', {}, 'Wdh.')))))));
   out.push(...achievementsPanel());
   return out;
+}
+
+/* ---------- An Jarvis senden ---------- */
+function jarvisPayload() {
+  const up = nextPlan() || S.plans.find(p => p.exercises.length) || null;
+  const sets = S.workouts.flatMap(w => w.sets);
+  const lastHit = {};
+  GROUPS.forEach(([n, ks]) => { let t = 0; for (const st of sets) { const m = musclesOf(st.ex); if (m && m.p.some(k => ks.includes(k)) && st.t > t) t = st.t; } if (t) lastHit[n] = t; });
+  const B = S.body, bodyOk = B.w > 0 && B.h > 0 && B.a > 0, T = bodyOk ? bodyTargets(B) : null;
+  const recentPr = S.workouts.filter(w => w.start > Date.now() - 14 * 864e5).flatMap(w => w.sets.filter(s => s.pr)).slice(0, 5).map(s => [s.ex, s.kg, s.reps]);
+  const last = S.workouts[0];
+  return {
+    v: 1, at: Date.now(),
+    next: up && { plan: up.name, ex: up.exercises.map(ex => { const sg = suggest(ex); return sg ? [ex, sg.kg, sg.reps] : [ex]; }) },
+    plans: S.plans.map(p => p.name),
+    lastHit, week: [weekCount(), S.settings.goal], streak: streak(),
+    last: last && { plan: last.plan, at: last.start, sets: last.sets.length },
+    prs: recentPr,
+    body: T && { w: B.w, goal: B.goal, kcal: T.kcal, protein: T.p, water: T.water }
+  };
+}
+async function sendToJarvis() {
+  const d = jarvisPayload();
+  const head = d.next ? `Gym-Update: als Nächstes ${d.next.plan}, ${d.week[0]}/${d.week[1]} diese Woche.` : 'Gym-Update';
+  const text = `${head}\n#gym ${JSON.stringify(d)}`;
+  try {
+    if (navigator.share) { await navigator.share({ text }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(text); toast('Kopiert. Füg es in Telegram im Chat mit Jarvis ein.'); }
+  catch { toast('Teilen ging nicht. Exportiere stattdessen unter Pläne → Backup.'); }
+}
+function jarvisCard() {
+  return h('section', { class: 'panel' },
+    h('p', { class: 'note' }, 'Schick Jarvis dein Trainings-Update per Telegram. Er sagt dir dann morgens, was ansteht: Plan, Zielgewichte, welche Muskeln erholt sind und dein Proteinziel.'),
+    h('button', { class: 'btn sm primary', onclick: sendToJarvis }, icon(I.arrow, 16), 'An Jarvis senden'),
+    h('p', { class: 'note', style: 'margin:10px 0 0;font-size:12px' }, 'Im Teilen-Menü Telegram wählen und den Chat mit deinem Jarvis-Bot. Am besten nach jedem Training.'));
 }
 
 /* ---------- Körper & Ernährung ---------- */
