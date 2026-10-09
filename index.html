@@ -413,6 +413,12 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .quick button:active{transform:scale(.97)}
 .quick b{font:600 13px var(--f-body)}
 .quick span{font:600 12px var(--f-mono);color:var(--accent)}
+.rhythm{list-style:none;margin:0;padding:0;display:grid}
+.rhythm li{display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line)}
+.rhythm li:first-child{border-top:0}
+.rhythm li span{font-size:11px;color:var(--dim)}
+.rhythm li b{font:800 22px/1 var(--f-disp);text-transform:uppercase}
+.rhythm li b.off{color:var(--dim)}
 .linkbtn{border:0;background:none;padding:0;font-size:12px;color:var(--mute);text-decoration:underline;cursor:pointer;justify-self:start}
 .water{display:grid;grid-template-columns:repeat(auto-fill,minmax(26px,1fr));gap:5px}
 .water button{height:34px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);cursor:pointer}
@@ -471,6 +477,7 @@ const DEFAULT = {
   ach: {},
   achInit: false,
   settings: { rest: 90, goal: 3, sets: 3, repTarget: 8, step: 2.5, speak: false, accent: 'rot' },
+  rhythm: [],
   body: { w: 0, h: 0, a: 0, sex: 'm', goal: 'aufbau', day: '', prot: [], water: 0, weights: [] }
 };
 
@@ -523,6 +530,8 @@ function sanitize(o) {
     repTarget: clamp(Math.round(num(s.repTarget, 8)), 1, 30), step: clamp(num(s.step, 2.5), 0.25, 25), speak: !!s.speak,
     accent: ['rot', 'kobalt', 'smaragd'].includes(s.accent) ? s.accent : 'rot'
   };
+  const ids = new Set(st.plans.map(p => p.id));
+  st.rhythm = (Array.isArray(o.rhythm) ? o.rhythm : []).map(x => str(x)).filter(x => x === 'pause' || ids.has(x)).slice(0, 14);
   const bd = o.body && typeof o.body === 'object' ? o.body : {};
   st.body = {
     w: clamp(num(bd.w, 0), 0, 300), h: clamp(num(bd.h, 0), 0, 250), a: clamp(Math.round(num(bd.a, 0)), 0, 110),
@@ -979,9 +988,21 @@ function planHero(p) {
   ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, cancel));
   btn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   btn.addEventListener('contextmenu', e => e.preventDefault());
+  const r = rhythmToday();
+  if (r && r.kind !== 'train') {
+    return [h('div', { class: 'plan-hero' },
+      h('div', { class: 'eyebrow' }, r.kind === 'rest' ? 'Laut deinem Rhythmus' : `${r.doneName} erledigt`),
+      h('h2', {}, r.kind === 'rest' ? 'Pause' : 'Stark', h('em', {}, '.')),
+      h('p', {}, r.kind === 'rest' ? ['Heute ist Ruhetag. Muskeln wachsen in der Pause. Als Nächstes: ', h('b', {}, p.name), '.'] : ['Für heute bist du fertig. Als Nächstes: ', h('b', {}, p.name), '.'])),
+      h('section', { class: 'panel ready' },
+        h('div', { class: 'rowx' }, h('b', {}, 'Bereitschaft'), h('span', {}, 'seit dem letzten Training')),
+        rd.map(x => h('div', { class: 'mus' + (mine.has(x.name) ? ' on' : '') },
+          h('span', {}, x.name), h('div', { class: 'bar' }, h('i', { style: `width:${Math.max(4, x.pct)}%` })), h('span', { class: 'v num' }, `${x.pct}%`)))),
+      h('button', { class: 'btn ghost', style: 'margin-top:14px', onclick: () => startWorkout(p.name, p.exercises) }, `Trotzdem ${p.name} trainieren`)];
+  }
   return [
     h('div', { class: 'plan-hero' },
-      h('div', { class: 'eyebrow' }, 'Heute dran'),
+      h('div', { class: 'eyebrow' }, r ? 'Heute dran laut Rhythmus' : 'Heute dran'),
       h('h2', {}, p.name, h('em', {}, '.')),
       h('p', {}, `${p.exercises.length} ${p.exercises.length === 1 ? 'Übung' : 'Übungen'}, etwa `, h('b', {}, `${mins} Minuten`), '. ',
         last ? ['Dein letztes ', p.name, ' war ', h('b', {}, daysAgo(last.start)), '.'] : 'Das wird dein erstes Mal mit diesem Plan.')),
@@ -1013,7 +1034,25 @@ function grid12() {
   return g;
 }
 
+/* Fester Rhythmus, z. B. Brust & Rücken → Arme & Schultern → Pause. Gibt zurück, was heute dran ist. */
+function rhythmToday() {
+  const byId = new Map(S.plans.map(p => [p.id, p]));
+  const seq = S.rhythm.filter(x => x === 'pause' || byId.has(x));
+  if (!seq.some(x => x !== 'pause')) return null;
+  const n = seq.length, names = seq.map(x => x === 'pause' ? null : byId.get(x).name);
+  const nextTrain = i => { let j = (i + 1) % n, pauses = 0; while (seq[j] === 'pause' && pauses < n) { pauses++; j = (j + 1) % n; } return { j, pauses }; };
+  const last = S.workouts.find(w => names.includes(w.plan));
+  if (!last) { const j = seq.findIndex(x => x !== 'pause'); return { kind: 'train', plan: byId.get(seq[j]) }; }
+  const days = Math.round((midnight(Date.now()) - midnight(last.start)) / 864e5);
+  const { j, pauses } = nextTrain(names.indexOf(last.plan));
+  const plan = byId.get(seq[j]);
+  if (days <= 0) return { kind: 'done', plan, doneName: last.plan };
+  if (days - 1 < pauses) return { kind: 'rest', plan };
+  return { kind: 'train', plan };
+}
 function nextPlan() {
+  const r = rhythmToday();
+  if (r) return r.plan;
   if (S.plans.length < 2 || !S.workouts.length) return null;
   const lastAt = p => (S.workouts.find(w => w.plan === p.name) || { start: 0 }).start;
   return S.plans.filter(p => p.exercises.length).reduce((best, p) => (!best || lastAt(p) < lastAt(best) ? p : best), null);
@@ -1134,7 +1173,7 @@ function viewPlaene() {
         h('button', { class: 'btn sm danger', onclick: () => { if (confirm(`Plan „${p.name}“ löschen?`)) { S.plans = S.plans.filter(x => x !== p); save(); render(); } } }, 'Löschen'))));
   });
   list.append(h('button', { class: 'btn ghost', onclick: () => { S.plans.push({ id: uid(), name: 'Neuer Plan', exercises: [] }); save(); render(); } }, icon(I.plus, 18), 'Neuer Plan'));
-  out.push(list, sec('Jarvis'), jarvisCard(), sec('Einstellungen'), settingsCard(), sec('Backup'), backupCard());
+  out.push(list, sec('Rhythmus', S.rhythm.length ? `${S.rhythm.length} Tage` : 'aus'), rhythmCard(), sec('Jarvis'), jarvisCard(), sec('Einstellungen'), settingsCard(), sec('Backup'), backupCard());
   return out;
 }
 
@@ -1296,6 +1335,24 @@ function viewFortschritt() {
   return out;
 }
 
+function rhythmCard() {
+  const byId = new Map(S.plans.map(p => [p.id, p]));
+  const seq = S.rhythm.filter(x => x === 'pause' || byId.has(x));
+  const r = rhythmToday();
+  const add = v => { S.rhythm = seq.concat(v).slice(0, 14); save(); render(); };
+  const del = i => { S.rhythm = seq.filter((_, k) => k !== i); save(); render(); };
+  return h('section', { class: 'panel stack' },
+    h('p', { class: 'note', style: 'margin:0' }, 'Leg fest, in welcher Reihenfolge du trainierst. Die App und Jarvis wissen dann jeden Tag, was dran ist, auch an Ruhetagen. Danach geht es wieder von vorne los.'),
+    seq.length ? h('ol', { class: 'rhythm' }, seq.map((x, i) => h('li', {},
+      h('span', { class: 'num' }, `Tag ${i + 1}`), h('b', { class: x === 'pause' ? 'off' : '' }, x === 'pause' ? 'Pause' : byId.get(x).name),
+      h('button', { class: 'btn sm icon quiet', 'aria-label': 'Tag entfernen', onclick: () => del(i) }, icon(I.x, 14))))) : null,
+    h('div', { class: 'chips', role: 'group', 'aria-label': 'Tag hinzufügen' },
+      S.plans.map(p => h('button', { onclick: () => add(p.id) }, icon(I.plus, 12), p.name)),
+      h('button', { onclick: () => add('pause') }, icon(I.plus, 12), 'Pause')),
+    r && h('div', { class: 'hhint' }, r.kind === 'rest' ? ['Heute: ', h('b', {}, 'Ruhetag'), ` · danach ${r.plan.name}`] : r.kind === 'done' ? ['Heute erledigt · als Nächstes ', h('b', {}, r.plan.name)] : ['Heute dran: ', h('b', {}, r.plan.name)]),
+    seq.length > 0 && h('button', { class: 'linkbtn', onclick: () => { S.rhythm = []; save(); render(); } }, 'Rhythmus ausschalten'));
+}
+
 /* ---------- An Jarvis senden ---------- */
 function jarvisPayload() {
   const up = nextPlan() || S.plans.find(p => p.exercises.length) || null;
@@ -1308,6 +1365,10 @@ function jarvisPayload() {
   return {
     v: 1, at: Date.now(),
     next: up && { plan: up.name, ex: up.exercises.map(ex => { const sg = suggest(ex); return sg ? [ex, sg.kg, sg.reps] : [ex]; }) },
+    targets: Object.fromEntries(S.plans.map(p => [p.name, p.exercises.map(ex => { const sg = suggest(ex); return sg ? [ex, sg.kg, sg.reps] : [ex]; })])),
+    rhythm: S.rhythm.map(x => x === 'pause' ? 'Pause' : (S.plans.find(p => p.id === x) || {}).name).filter(Boolean),
+    today: (r => r && { kind: r.kind, plan: r.plan.name })(rhythmToday()),
+    lastRhythm: (w => w && { plan: w.plan, at: w.start })(S.workouts.find(w => S.rhythm.some(x => x !== 'pause' && (S.plans.find(p => p.id === x) || {}).name === w.plan))),
     plans: S.plans.map(p => p.name),
     lastHit, week: [weekCount(), S.settings.goal], streak: streak(),
     last: last && { plan: last.plan, at: last.start, sets: last.sets.length },
