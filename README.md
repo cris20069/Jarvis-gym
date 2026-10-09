@@ -2,4 +2,4 @@
 
 Trainingstagebuch als Web-App fürs Handy. Läuft komplett im Browser, ohne Server und ohne KI. Deine Daten bleiben auf deinem Gerät.
 
-Schriften: Saira Condensed, Barlow, JetBrains Mono (SIL Open Font License, siehe `fonts/`).
+Schrift: die Systemschrift des Geräts (SF Pro auf dem iPhone), deshalb keine Schriftdateien.

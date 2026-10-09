@@ -1,14 +1,5 @@
-const CACHE = 'jarvis-gym-v9';
-const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
-  'fonts/saira-condensed-latin-700-normal.woff2',
-  'fonts/saira-condensed-latin-800-normal.woff2',
-  'fonts/barlow-latin-400-normal.woff2',
-  'fonts/barlow-latin-500-normal.woff2',
-  'fonts/barlow-latin-600-normal.woff2',
-  'fonts/barlow-latin-700-normal.woff2',
-  'fonts/jetbrains-mono-latin-500-normal.woff2',
-  'fonts/jetbrains-mono-latin-700-normal.woff2'
-];
+const CACHE = 'jarvis-gym-v10';
+const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
