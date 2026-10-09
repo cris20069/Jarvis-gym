@@ -414,9 +414,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .quick b{font:600 13px var(--f-body)}
 .quick span{font:600 12px var(--f-mono);color:var(--accent)}
 .rhythm{list-style:none;margin:0;padding:0;display:grid}
-.rhythm li{display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line)}
+.rhythm li{display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:10px;padding:5px 0;border-top:1px solid var(--line)}
+.rhythm li.today span{color:var(--accent)}
+.rhythm select{min-height:44px;font:700 15px var(--f-body)}
 .rhythm li:first-child{border-top:0}
-.rhythm li span{font-size:11px;color:var(--dim)}
+.rhythm li span{font:600 12px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
 .rhythm li b{font:800 22px/1 var(--f-disp);text-transform:uppercase}
 .rhythm li b.off{color:var(--dim)}
 .linkbtn{border:0;background:none;padding:0;font-size:12px;color:var(--mute);text-decoration:underline;cursor:pointer;justify-self:start}
@@ -477,7 +479,7 @@ const DEFAULT = {
   ach: {},
   achInit: false,
   settings: { rest: 90, goal: 3, sets: 3, repTarget: 8, step: 2.5, speak: false, accent: 'rot' },
-  rhythm: [],
+  weekPlan: ['', '', '', '', '', '', ''],
   body: { w: 0, h: 0, a: 0, sex: 'm', goal: 'aufbau', day: '', prot: [], water: 0, weights: [] }
 };
 
@@ -531,7 +533,8 @@ function sanitize(o) {
     accent: ['rot', 'kobalt', 'smaragd'].includes(s.accent) ? s.accent : 'rot'
   };
   const ids = new Set(st.plans.map(p => p.id));
-  st.rhythm = (Array.isArray(o.rhythm) ? o.rhythm : []).map(x => str(x)).filter(x => x === 'pause' || ids.has(x)).slice(0, 14);
+  const wp = Array.isArray(o.weekPlan) ? o.weekPlan : [];
+  st.weekPlan = Array.from({ length: 7 }, (_, i) => ids.has(str(wp[i])) ? str(wp[i]) : '');
   const bd = o.body && typeof o.body === 'object' ? o.body : {};
   st.body = {
     w: clamp(num(bd.w, 0), 0, 300), h: clamp(num(bd.h, 0), 0, 250), a: clamp(Math.round(num(bd.a, 0)), 0, 110),
@@ -991,9 +994,9 @@ function planHero(p) {
   const r = rhythmToday();
   if (r && r.kind !== 'train') {
     return [h('div', { class: 'plan-hero' },
-      h('div', { class: 'eyebrow' }, r.kind === 'rest' ? 'Laut deinem Rhythmus' : `${r.doneName} erledigt`),
+      h('div', { class: 'eyebrow' }, r.kind === 'rest' ? `${DAYS[(new Date().getDay() + 6) % 7]} · Ruhetag` : `${r.doneName} erledigt`),
       h('h2', {}, r.kind === 'rest' ? 'Pause' : 'Stark', h('em', {}, '.')),
-      h('p', {}, r.kind === 'rest' ? ['Heute ist Ruhetag. Muskeln wachsen in der Pause. Als Nächstes: ', h('b', {}, p.name), '.'] : ['Für heute bist du fertig. Als Nächstes: ', h('b', {}, p.name), '.'])),
+      h('p', {}, r.kind === 'rest' ? ['Muskeln wachsen in der Pause. ', r.when[0].toUpperCase() + r.when.slice(1), ' ist ', h('b', {}, p.name), ' dran.'] : ['Für heute bist du fertig. ', r.when[0].toUpperCase() + r.when.slice(1), ' kommt ', h('b', {}, p.name), '.'])),
       h('section', { class: 'panel ready' },
         h('div', { class: 'rowx' }, h('b', {}, 'Bereitschaft'), h('span', {}, 'seit dem letzten Training')),
         rd.map(x => h('div', { class: 'mus' + (mine.has(x.name) ? ' on' : '') },
@@ -1002,7 +1005,7 @@ function planHero(p) {
   }
   return [
     h('div', { class: 'plan-hero' },
-      h('div', { class: 'eyebrow' }, r ? 'Heute dran laut Rhythmus' : 'Heute dran'),
+      h('div', { class: 'eyebrow' }, r ? `${DAYS[(new Date().getDay() + 6) % 7]} · laut Wochenplan` : 'Heute dran'),
       h('h2', {}, p.name, h('em', {}, '.')),
       h('p', {}, `${p.exercises.length} ${p.exercises.length === 1 ? 'Übung' : 'Übungen'}, etwa `, h('b', {}, `${mins} Minuten`), '. ',
         last ? ['Dein letztes ', p.name, ' war ', h('b', {}, daysAgo(last.start)), '.'] : 'Das wird dein erstes Mal mit diesem Plan.')),
@@ -1034,21 +1037,18 @@ function grid12() {
   return g;
 }
 
-/* Fester Rhythmus, z. B. Brust & Rücken → Arme & Schultern → Pause. Gibt zurück, was heute dran ist. */
+/* Wochenplan: feste Trainingstage (Index 0 = Montag). Gibt zurück, was heute dran ist. */
+const DAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 function rhythmToday() {
   const byId = new Map(S.plans.map(p => [p.id, p]));
-  const seq = S.rhythm.filter(x => x === 'pause' || byId.has(x));
-  if (!seq.some(x => x !== 'pause')) return null;
-  const n = seq.length, names = seq.map(x => x === 'pause' ? null : byId.get(x).name);
-  const nextTrain = i => { let j = (i + 1) % n, pauses = 0; while (seq[j] === 'pause' && pauses < n) { pauses++; j = (j + 1) % n; } return { j, pauses }; };
-  const last = S.workouts.find(w => names.includes(w.plan));
-  if (!last) { const j = seq.findIndex(x => x !== 'pause'); return { kind: 'train', plan: byId.get(seq[j]) }; }
-  const days = Math.round((midnight(Date.now()) - midnight(last.start)) / 864e5);
-  const { j, pauses } = nextTrain(names.indexOf(last.plan));
-  const plan = byId.get(seq[j]);
-  if (days <= 0) return { kind: 'done', plan, doneName: last.plan };
-  if (days - 1 < pauses) return { kind: 'rest', plan };
-  return { kind: 'train', plan };
+  const wp = S.weekPlan.map(id => byId.get(id) || null);
+  if (!wp.some(Boolean)) return null;
+  const now = Date.now(), dow = (new Date(now).getDay() + 6) % 7;
+  const trainedToday = S.workouts.some(w => midnight(w.start) === midnight(now));
+  let k = 1; while (k <= 7 && !wp[(dow + k) % 7]) k++;
+  const nd = (dow + k) % 7, when = k === 1 ? 'morgen' : `am ${DAYS[nd]}`;
+  if (wp[dow] && !trainedToday) return { kind: 'train', plan: wp[dow] };
+  return { kind: trainedToday ? 'done' : 'rest', plan: wp[nd], when, doneName: trainedToday ? (S.workouts.find(w => midnight(w.start) === midnight(now)) || {}).plan : null };
 }
 function nextPlan() {
   const r = rhythmToday();
@@ -1170,10 +1170,10 @@ function viewPlaene() {
       name, ta,
       h('div', { class: 'row' },
         h('button', { class: 'btn sm primary', onclick: () => { p.name = name.value.trim() || 'Plan'; p.exercises = cleanNames(ta.value.split('\n')); save(); toast('Plan gespeichert'); render(); } }, icon(I.check, 16), 'Speichern'),
-        h('button', { class: 'btn sm danger', onclick: () => { if (confirm(`Plan „${p.name}“ löschen?`)) { S.plans = S.plans.filter(x => x !== p); save(); render(); } } }, 'Löschen'))));
+        h('button', { class: 'btn sm danger', onclick: () => { if (confirm(`Plan „${p.name}“ löschen?`)) { S.plans = S.plans.filter(x => x !== p); S.weekPlan = S.weekPlan.map(id => id === p.id ? '' : id); save(); render(); } } }, 'Löschen'))));
   });
   list.append(h('button', { class: 'btn ghost', onclick: () => { S.plans.push({ id: uid(), name: 'Neuer Plan', exercises: [] }); save(); render(); } }, icon(I.plus, 18), 'Neuer Plan'));
-  out.push(list, sec('Rhythmus', S.rhythm.length ? `${S.rhythm.length} Tage` : 'aus'), rhythmCard(), sec('Jarvis'), jarvisCard(), sec('Einstellungen'), settingsCard(), sec('Backup'), backupCard());
+  out.push(list, sec('Wochenplan', `${S.weekPlan.filter(Boolean).length} Trainingstage`), rhythmCard(), sec('Jarvis'), jarvisCard(), sec('Einstellungen'), settingsCard(), sec('Backup'), backupCard());
   return out;
 }
 
@@ -1336,21 +1336,15 @@ function viewFortschritt() {
 }
 
 function rhythmCard() {
-  const byId = new Map(S.plans.map(p => [p.id, p]));
-  const seq = S.rhythm.filter(x => x === 'pause' || byId.has(x));
-  const r = rhythmToday();
-  const add = v => { S.rhythm = seq.concat(v).slice(0, 14); save(); render(); };
-  const del = i => { S.rhythm = seq.filter((_, k) => k !== i); save(); render(); };
+  const r = rhythmToday(), dow = (new Date().getDay() + 6) % 7;
   return h('section', { class: 'panel stack' },
-    h('p', { class: 'note', style: 'margin:0' }, 'Leg fest, in welcher Reihenfolge du trainierst. Die App und Jarvis wissen dann jeden Tag, was dran ist, auch an Ruhetagen. Danach geht es wieder von vorne los.'),
-    seq.length ? h('ol', { class: 'rhythm' }, seq.map((x, i) => h('li', {},
-      h('span', { class: 'num' }, `Tag ${i + 1}`), h('b', { class: x === 'pause' ? 'off' : '' }, x === 'pause' ? 'Pause' : byId.get(x).name),
-      h('button', { class: 'btn sm icon quiet', 'aria-label': 'Tag entfernen', onclick: () => del(i) }, icon(I.x, 14))))) : null,
-    h('div', { class: 'chips', role: 'group', 'aria-label': 'Tag hinzufügen' },
-      S.plans.map(p => h('button', { onclick: () => add(p.id) }, icon(I.plus, 12), p.name)),
-      h('button', { onclick: () => add('pause') }, icon(I.plus, 12), 'Pause')),
-    r && h('div', { class: 'hhint' }, r.kind === 'rest' ? ['Heute: ', h('b', {}, 'Ruhetag'), ` · danach ${r.plan.name}`] : r.kind === 'done' ? ['Heute erledigt · als Nächstes ', h('b', {}, r.plan.name)] : ['Heute dran: ', h('b', {}, r.plan.name)]),
-    seq.length > 0 && h('button', { class: 'linkbtn', onclick: () => { S.rhythm = []; save(); render(); } }, 'Rhythmus ausschalten'));
+    h('p', { class: 'note', style: 'margin:0' }, 'Wähl für jeden Wochentag deinen Plan oder Pause. Die App und Jarvis wissen dann jeden Tag, was dran ist.'),
+    h('ol', { class: 'rhythm' }, DAYS.map((d, i) => h('li', { class: i === dow ? 'today' : '' },
+      h('span', {}, d.slice(0, 2)),
+      h('select', { id: `wp-${i}`, 'aria-label': `Plan für ${d}`, onchange: e => { S.weekPlan[i] = e.target.value; save(); render(); } },
+        h('option', { value: '', selected: !S.weekPlan[i] }, 'Pause'),
+        S.plans.map(p => h('option', { value: p.id, selected: S.weekPlan[i] === p.id }, p.name)))))),
+    r && h('div', { class: 'hhint' }, r.kind === 'rest' ? ['Heute: ', h('b', {}, 'Ruhetag'), ` · ${r.when} ${r.plan.name}`] : r.kind === 'done' ? ['Heute erledigt · ', `${r.when} `, h('b', {}, r.plan.name)] : ['Heute dran: ', h('b', {}, r.plan.name)]));
 }
 
 /* ---------- An Jarvis senden ---------- */
@@ -1366,9 +1360,8 @@ function jarvisPayload() {
     v: 1, at: Date.now(),
     next: up && { plan: up.name, ex: up.exercises.map(ex => { const sg = suggest(ex); return sg ? [ex, sg.kg, sg.reps] : [ex]; }) },
     targets: Object.fromEntries(S.plans.map(p => [p.name, p.exercises.map(ex => { const sg = suggest(ex); return sg ? [ex, sg.kg, sg.reps] : [ex]; })])),
-    rhythm: S.rhythm.map(x => x === 'pause' ? 'Pause' : (S.plans.find(p => p.id === x) || {}).name).filter(Boolean),
+    weekPlan: S.weekPlan.map(id => (S.plans.find(p => p.id === id) || {}).name || ''),
     today: (r => r && { kind: r.kind, plan: r.plan.name })(rhythmToday()),
-    lastRhythm: (w => w && { plan: w.plan, at: w.start })(S.workouts.find(w => S.rhythm.some(x => x !== 'pause' && (S.plans.find(p => p.id === x) || {}).name === w.plan))),
     plans: S.plans.map(p => p.name),
     lastHit, week: [weekCount(), S.settings.goal], streak: streak(),
     last: last && { plan: last.plan, at: last.start, sets: last.sets.length },
