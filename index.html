@@ -89,6 +89,26 @@ button{font:inherit;color:inherit}
 .panel{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow)}
 .stack{display:grid;gap:12px}
 
+/* Heute-dran-Karte */
+.upnext{margin-top:14px;display:grid;gap:14px;padding:22px 20px 20px;border-radius:24px;background:var(--accent);color:#fff;box-shadow:0 18px 40px -22px var(--accent)}
+.td-kick{font:600 14px/1 var(--f-body);color:rgba(255,255,255,.78)}
+.td-name{margin:0;font:700 40px/1 var(--f-display);letter-spacing:-.035em}
+.td-list{list-style:none;margin:2px 0 0;padding:0;display:grid}
+.td-list li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid rgba(255,255,255,.18);font-size:16px}
+.td-ex{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-val{font-weight:600;white-space:nowrap}
+.td-val.new{font-weight:500;color:rgba(255,255,255,.7)}
+.td-meta{font:500 13px/1.4 var(--f-body);color:rgba(255,255,255,.75)}
+.upnext .btn.td-go{background:#fff;color:var(--accent);min-height:54px;font-size:17px}
+
+/* Wochenkarte */
+.weekcard{display:grid;gap:18px}
+.wk-top{display:flex;align-items:center;gap:18px}
+.weekcard .reactor svg{width:112px}
+.wk-side{display:grid;gap:4px;min-width:0}
+.wk-side b{font:700 20px/1.2 var(--f-display);letter-spacing:-.02em}
+.wk-side span{font-size:14px;color:var(--mute)}
+
 /* Wochenring */
 .hero{display:grid;gap:20px;padding:22px 18px 18px;overflow:hidden;margin-top:14px}
 .reactor{display:grid;place-items:center}
@@ -99,24 +119,9 @@ button{font:inherit;color:inherit}
 .arc.full{stroke:var(--green)}
 .core{fill:none;stroke:none}
 .inner{display:none}
-.r-num{font:700 54px/1 var(--f-display);letter-spacing:-.03em;fill:var(--text)}
+.r-num{font:700 58px/1 var(--f-display);letter-spacing:-.03em;fill:var(--text)}
 .r-of{font-size:24px;font-weight:500;fill:var(--dim)}
-.r-lbl{font:600 11px/1 var(--f-body);letter-spacing:.02em;fill:var(--mute)}
-
-/* Video im Startbereich */
-.cam{position:relative;width:100%;aspect-ratio:4/5;max-height:460px;border-radius:16px;overflow:hidden;background:#000}
-.cam-feed{position:absolute;inset:0}
-.cam-slot{position:absolute;inset:0}
-.cam-feed iframe{position:absolute;top:0;left:50%;height:100%;width:177.78%;transform:translateX(-50%);border:0;pointer-events:none}
-.cam-hud{position:absolute;inset:0;pointer-events:none;color:#fff}
-.cam-hud::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.72))}
-.cc,.rec,.camid,.tc,.reticle,.lock{display:none}
-.cam-tag{position:absolute;left:18px;right:96px;bottom:18px;display:grid;gap:4px}
-.cam-tag b{font:700 24px/1.1 var(--f-display);letter-spacing:-.02em}
-.cam-tag span{font:500 13px/1 var(--f-body);color:rgba(255,255,255,.78)}
-.cam-ring{position:absolute;right:16px;bottom:14px;width:64px;height:64px}
-.cam-ring svg{width:100%;height:100%}
-.cam-ring b{position:absolute;inset:0;display:grid;place-items:center;font:700 16px/1 var(--f-display)}
+.r-lbl{display:none}
 
 .week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .day{display:grid;justify-items:center;gap:7px;font:600 11px/1 var(--f-body);color:var(--dim)}
@@ -408,7 +413,7 @@ const DEFAULT = {
   active: null,
   ach: {},
   achInit: false,
-  settings: { rest: 90, goal: 3, sets: 3, repTarget: 8, step: 2.5, speak: false, heroVideo: null }
+  settings: { rest: 90, goal: 3, sets: 3, repTarget: 8, step: 2.5, speak: false }
 };
 
 function cleanSets(a) {
@@ -457,8 +462,7 @@ function sanitize(o) {
   const s = o.settings || {};
   st.settings = {
     rest: clamp(num(s.rest, 90), 10, 600), goal: clamp(Math.round(num(s.goal, 3)), 1, 14), sets: clamp(Math.round(num(s.sets, 3)), 1, 10),
-    repTarget: clamp(Math.round(num(s.repTarget, 8)), 1, 30), step: clamp(num(s.step, 2.5), 0.25, 25), speak: !!s.speak,
-    heroVideo: s.heroVideo && /^[A-Za-z0-9_-]{11}$/.test(s.heroVideo.id) ? { id: s.heroVideo.id, start: clamp(Math.round(num(s.heroVideo.start, 0)), 0, 86400), trim: clamp(Math.round(num(s.heroVideo.trim, 0)), 0, 600) } : null
+    repTarget: clamp(Math.round(num(s.repTarget, 8)), 1, 30), step: clamp(num(s.step, 2.5), 0.25, 25), speak: !!s.speak
   };
   return st;
 }
@@ -633,7 +637,7 @@ async function wake() {
   } catch {}
 }
 function releaseWake() { try { wl && wl.release(); } catch {} wl = null; }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { wake(); tick(); if (typeof resumeHero === 'function') resumeHero(); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { wake(); tick(); } });
 
 /* ---------- workout logic ---------- */
 let summary = null, tab = 'heute', focusEx = 0, chartEx = null, chartMetric = 'kg', lastHeard = '';
@@ -764,7 +768,7 @@ function reactor(n, goal) {
   const svg = sv('svg', { viewBox: '0 0 200 200', role: 'img', 'aria-label': `${n} von ${goal} Trainings diese Woche` });
   svg.append(sv('circle', { class: 'arc-track', cx: 100, cy: 100, r: R, fill: 'none', 'stroke-width': 16 }));
   if (p > 0) svg.append(sv('circle', { class: 'arc' + (p >= 1 ? ' full' : ''), cx: 100, cy: 100, r: R, fill: 'none', 'stroke-width': 16, 'stroke-linecap': 'round', 'stroke-dasharray': `${C * p} ${C}`, transform: 'rotate(-90 100 100)' }));
-  svg.append(sv('text', { class: 'r-num', x: 100, y: 108, 'text-anchor': 'middle' }, String(n), sv('tspan', { class: 'r-of' }, ` / ${goal}`)));
+  svg.append(sv('text', { class: 'r-num', x: 100, y: 120, 'text-anchor': 'middle' }, String(n), sv('tspan', { class: 'r-of' }, ` / ${goal}`)));
   svg.append(sv('text', { class: 'r-lbl', x: 100, y: 132, 'text-anchor': 'middle' }, 'diese Woche'));
   return svg;
 }
@@ -817,133 +821,33 @@ function barChart(bars) {
 const TONES = ['var(--accent)'];
 const sec = (title, meta) => h('div', { class: 'sec' }, h('h2', {}, title), meta != null && h('span', {}, meta));
 const fact = (label, value, cls) => h('span', { class: 'fact' + (cls ? ' ' + cls : '') }, label, h('b', {}, String(value)));
-function parseYouTube(text) {
-  const t = String(text || '').trim();
-  let id = null, start = 0;
-  try {
-    const u = new URL(t), host = u.hostname.replace(/^(www|m|music)\./, '');
-    if (host === 'youtu.be') id = u.pathname.slice(1, 12);
-    else if (host === 'youtube.com' || host === 'youtube-nocookie.com') id = u.searchParams.get('v') || (u.pathname.match(/\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})/) || [])[1];
-    const tt = u.searchParams.get('t') || u.searchParams.get('start');
-    const m = tt && tt.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/);
-    if (m) start = (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0);
-  } catch { if (/^[A-Za-z0-9_-]{11}$/.test(t)) id = t; }
-  return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? { id, start } : null;
-}
-
-window.addEventListener('online', () => { if (tab === 'heute' && !S.active) render(); });
-window.addEventListener('offline', () => { if (tab === 'heute' && !S.active) render(); });
-
-let ytApi = null, heroPlayer = null, heroTimer = null;
-function loadYouTubeApi() {
-  if (window.YT && window.YT.Player) return Promise.resolve();
-  if (!ytApi) ytApi = new Promise((resolve, reject) => {
-    window.onYouTubeIframeAPIReady = resolve;
-    const sc = document.createElement('script');
-    sc.src = 'https://www.youtube.com/iframe_api';
-    sc.onerror = () => { ytApi = null; reject(new Error('YouTube nicht erreichbar')); };
-    document.head.append(sc);
-    setTimeout(() => reject(new Error('timeout')), 12000);
-  });
-  return ytApi;
-}
-function stopHero() {
-  clearInterval(heroTimer); heroTimer = null;
-  if (heroPlayer) { try { heroPlayer.destroy(); } catch {} heroPlayer = null; }
-}
-function plainEmbed(v) {
-  const src = `https://www.youtube-nocookie.com/embed/${v.id}?autoplay=1&mute=1&loop=1&playlist=${v.id}&controls=0&playsinline=1&rel=0&iv_load_policy=3&disablekb=1&fs=0${v.start ? `&start=${v.start}` : ''}`;
-  return h('iframe', { src, title: 'Video im Startbereich', allow: 'autoplay; encrypted-media; picture-in-picture', referrerpolicy: 'strict-origin-when-cross-origin', tabindex: '-1' });
-}
-function mountHero(slot, v) {
-  stopHero();
-  loadYouTubeApi().then(() => {
-    if (!slot.isConnected) return;
-    const restart = p => { p.seekTo(v.start || 0, true); p.playVideo(); };
-    const player = new YT.Player(slot, {
-      videoId: v.id, host: 'https://www.youtube-nocookie.com',
-      playerVars: { autoplay: 1, mute: 1, controls: 0, playsinline: 1, rel: 0, iv_load_policy: 3, disablekb: 1, fs: 0, start: v.start || 0, origin: location.origin },
-      events: {
-        onReady: e => { e.target.mute(); e.target.playVideo(); },
-        onStateChange: e => { if (e.data === YT.PlayerState.ENDED) restart(e.target); },
-      },
-    });
-    heroPlayer = player;
-    heroTimer = setInterval(() => {
-      const frame = player.getIframe && player.getIframe();
-      if (!frame || !frame.isConnected) { if (heroPlayer === player) stopHero(); return; }
-      const st = player.getPlayerState ? player.getPlayerState() : null;
-      if (document.visibilityState === 'visible' && (st === YT.PlayerState.PAUSED || st === YT.PlayerState.CUED)) { player.mute(); player.playVideo(); }
-      if (!v.trim || !player.getDuration) return;
-      const d = player.getDuration(), t = player.getCurrentTime();
-      if (d > 0 && t >= d - v.trim) restart(player);
-    }, 250);
-  }).catch(() => { if (slot.isConnected) slot.replaceWith(plainEmbed(v)); });
-}
-
-function resumeHero() {
-  if (heroPlayer && heroPlayer.playVideo) { try { heroPlayer.mute(); heroPlayer.playVideo(); } catch {} return; }
-  const f = document.querySelector('.cam-feed iframe');
-  if (f) f.src = f.src;
-}
-window.addEventListener('pageshow', () => resumeHero());
-window.addEventListener('focus', () => resumeHero());
-
-function heroVisual(wk, goal) {
-  const v = S.settings.heroVideo;
-  if (!v || !navigator.onLine) { stopHero(); return h('div', { class: 'reactor' }, reactor(wk, goal)); }
-  const slot = h('div', { class: 'cam-slot' });
-  setTimeout(() => mountHero(slot, v), 0);
-  const p = Math.min(1, wk / goal), R = 27, C = 2 * Math.PI * R;
-  return h('div', { class: 'cam' },
-    h('div', { class: 'cam-feed' }, slot),
-    h('div', { class: 'cam-hud', 'aria-hidden': 'true' },
-      h('div', { class: 'cam-tag' }, h('span', {}, `KW ${isoWeek(Date.now())} · Diese Woche`), h('b', {}, `${wk} von ${goal} Trainings`)),
-      h('div', { class: 'cam-ring' },
-        sv('svg', { viewBox: '0 0 66 66' },
-          sv('circle', { cx: 33, cy: 33, r: R, fill: 'rgba(0,0,0,.35)', stroke: 'rgba(255,255,255,.22)', 'stroke-width': 5 }),
-          p > 0 ? sv('circle', { class: 'arc' + (p >= 1 ? ' full' : ''), cx: 33, cy: 33, r: R, fill: 'none', 'stroke-width': 5, 'stroke-linecap': 'round', 'stroke-dasharray': `${C * p} ${C}`, transform: 'rotate(-90 33 33)' }) : null),
-        h('b', {}, `${wk}/${goal}`))));
-}
-
-function heroCard() {
-  const v = S.settings.heroVideo;
-  const inp = h('input', { type: 'text', id: 'hero-link', inputmode: 'url', autocomplete: 'off', placeholder: 'https://youtu.be/…', 'aria-label': 'YouTube-Link für den Startbereich',
-    value: v ? `https://youtu.be/${v.id}${v.start ? `?t=${v.start}` : ''}` : '' });
-  const trim = h('input', { type: 'number', id: 'hero-trim', inputmode: 'numeric', min: '0', max: '600', step: '1', value: v ? v.trim || 0 : 0, 'aria-label': 'Am Ende abschneiden in Sekunden' });
-  return h('section', { class: 'panel' },
-    h('p', { class: 'note' }, 'Füg einen YouTube-Link ein, zum Beispiel einen Spider-Man-Clip. Er läuft stumm in Dauerschleife oben auf der Startseite. Eine Startzeit im Link (?t=95) wird übernommen. Ohne Internet erscheint wieder der Ring.'),
-    h('div', { class: 'stack', style: 'gap:8px' }, inp,
-      h('div', { class: 'setting', style: 'padding:4px 0' }, h('label', { for: 'hero-trim' }, h('b', {}, 'Am Ende abschneiden'), h('span', {}, 'Sekunden, die vor dem Neustart übersprungen werden')), trim),
-      h('div', { class: 'row' },
-        h('button', { class: 'btn sm primary', onclick: () => {
-          const r = parseYouTube(inp.value);
-          if (!r) return toast('Das ist kein gültiger YouTube-Link');
-          r.trim = clamp(Math.round(parseNum(trim.value) || 0), 0, 600);
-          S.settings.heroVideo = r; save(); toast('Video übernommen, schau auf die Startseite'); render();
-        } }, icon(I.check, 16), 'Übernehmen'),
-        v && h('button', { class: 'btn sm', onclick: () => { S.settings.heroVideo = null; save(); toast('Video entfernt'); render(); } }, 'Entfernen'))));
-}
-
 const mini = (v, l, cls) => h('div', { class: 'mini' }, h('div', { class: 'v ' + cls }, v), h('div', { class: 'l' }, l));
 
 function viewHeute() {
   if (S.active) return viewActive();
   const wk = weekCount(), goal = S.settings.goal, st = streak();
+  const up = nextPlan() || S.plans.find(p => p.exercises.length) || null;
+  const others = S.plans.filter(p => p !== up);
   const out = [
     summary && summaryPanel(),
-    h('section', { class: 'panel hero' },
-      heroVisual(wk, goal),
+    up ? todayCard(up) : h('section', { class: 'panel empty' }, h('div', { class: 'ico' }, icon(I.plus, 26)), h('b', {}, 'Noch kein Plan'), h('p', {}, 'Leg unter „Pläne“ deinen ersten Trainingsplan an.')),
+    sec('Diese Woche', `KW ${isoWeek(Date.now())}`),
+    h('section', { class: 'panel weekcard' },
+      h('div', { class: 'wk-top' },
+        h('div', { class: 'reactor' }, reactor(wk, goal)),
+        h('div', { class: 'wk-side' },
+          h('b', {}, wk >= goal ? 'Wochenziel geschafft' : `Noch ${goal - wk} ${goal - wk === 1 ? 'Training' : 'Trainings'}`),
+          h('span', {}, wk >= goal ? 'Alles, was jetzt kommt, ist Bonus.' : `bis zu deinem Ziel von ${goal} pro Woche`))),
       h('div', { class: 'week', role: 'list', 'aria-label': 'Trainingstage dieser Woche' }, weekDays().map(d =>
         h('div', { class: 'day' + (d.done ? ' done' : '') + (d.today ? ' today' : ''), role: 'listitem', 'aria-label': d.long + (d.done ? ', trainiert' : '') + (d.today ? ', heute' : '') }, d.short, h('b', {}, d.num)))),
       heroHint(),
       h('div', { class: 'minis' },
-        mini(String(st), st === 1 ? 'Woche Serie' : 'Wochen Serie', 't-gold'),
-        mini(fmtTons(volume(thisWeek().flatMap(w => w.sets))), 'Volumen Woche', 't-cyan'),
-        mini(String(S.workouts.length), 'Trainings', 't-red'))),
-    sec('Training starten', `${S.plans.length} ${S.plans.length === 1 ? 'Plan' : 'Pläne'}`),
+        mini(String(st), st === 1 ? 'Woche Serie' : 'Wochen Serie', ''),
+        mini(fmtTons(volume(thisWeek().flatMap(w => w.sets))), 'Volumen', ''),
+        mini(String(S.workouts.length), 'Trainings', ''))),
+    sec(up ? 'Andere Pläne' : 'Training starten', others.length ? `${others.length}` : null),
     h('div', { class: 'stack' },
-      S.plans.map((p, i) => planCard(p, i, p === nextPlan())),
+      others.map(p => planCard(p, 0, false)),
       h('button', { class: 'btn ghost', onclick: () => startWorkout('Freies Training', []) }, icon(I.plus, 18), 'Freies Training'))
   ];
   const last = S.workouts[0];
@@ -959,6 +863,21 @@ function viewHeute() {
           fact('Übungen', new Set(last.sets.map(s => norm(s.ex))).size))));
   }
   return out;
+}
+
+function todayCard(p) {
+  const last = S.workouts.find(w => w.plan === p.name);
+  const rows = p.exercises.map(ex => {
+    const sg = suggest(ex), l = lastSets(ex);
+    const val = sg ? `${sg.kg > 0 ? fmtKg(sg.kg) + ' kg × ' : ''}${sg.reps}` : l.length ? '' : 'neu';
+    return h('li', {}, h('span', { class: 'td-ex' }, ex), h('span', { class: 'td-val' + (sg ? '' : ' new') }, val));
+  });
+  return h('section', { class: 'upnext' },
+    h('div', { class: 'td-kick' }, last ? `Heute dran · zuletzt ${daysAgo(last.start)}` : 'Heute dran'),
+    h('h2', { class: 'td-name' }, p.name),
+    h('ul', { class: 'td-list', 'aria-label': 'Übungen mit Zielgewicht' }, rows),
+    h('div', { class: 'td-meta' }, `${p.exercises.length} Übungen · ${p.exercises.length * Math.round(S.settings.sets)} Sätze · Ziele aus deinem letzten Training`),
+    h('button', { class: 'btn primary td-go', onclick: () => startWorkout(p.name, p.exercises) }, 'Training starten', icon(I.arrow, 18)));
 }
 
 function nextPlan() {
@@ -1082,7 +1001,7 @@ function viewPlaene() {
         h('button', { class: 'btn sm danger', onclick: () => { if (confirm(`Plan „${p.name}“ löschen?`)) { S.plans = S.plans.filter(x => x !== p); save(); render(); } } }, 'Löschen'))));
   });
   list.append(h('button', { class: 'btn ghost', onclick: () => { S.plans.push({ id: uid(), name: 'Neuer Plan', exercises: [] }); save(); render(); } }, icon(I.plus, 18), 'Neuer Plan'));
-  out.push(list, sec('Startbereich', 'Video'), heroCard(), sec('Einstellungen'), settingsCard(), sec('Backup'), backupCard());
+  out.push(list, sec('Einstellungen'), settingsCard(), sec('Backup'), backupCard());
   return out;
 }
 
@@ -1430,7 +1349,6 @@ function burst(cv, kind) {
 /* ---------- app shell ---------- */
 const $main = document.getElementById('main');
 function render() {
-  if (tab !== 'heute' || S.active) stopHero();
   const views = { heute: viewHeute, plaene: viewPlaene, verlauf: viewVerlauf, fortschritt: viewFortschritt };
   $main.replaceChildren(...[].concat(views[tab]()).filter(Boolean));
   document.querySelectorAll('.dock button').forEach(b => b.setAttribute('aria-current', b.dataset.tab === tab ? 'page' : 'false'));
