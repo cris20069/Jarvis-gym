@@ -549,6 +549,8 @@ function sanitize(o) {
 
 let S;
 try { S = sanitize(JSON.parse(localStorage.getItem(LS))); } catch { S = sanitize(null); }
+// Bittet den Browser, die Daten nicht automatisch zu löschen (z. B. iOS bei wenig Nutzung)
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
 let saveT;
 function saveSoon() { clearTimeout(saveT); saveT = setTimeout(save, 400); }
 function save() {
@@ -755,10 +757,33 @@ function removeSet(set) {
   S.active.sets = S.active.sets.filter(s => s !== set);
   save(); render();
 }
+// Eingetippte, aber nicht abgehakte Sätze (sonst gehen sie beim Beenden verloren)
+function pendingSets(a) {
+  const out = [];
+  for (const ex of a.exercises) {
+    const dr = a.draft[ex];
+    if (!dr) continue;
+    const done = a.sets.filter(s => s.ex === ex).length;
+    Object.entries(dr.rows).map(([j, r]) => [+j, r]).filter(([j]) => j >= done).sort((x, y) => x[0] - y[0]).forEach(([, r]) => {
+      const kg = parseNum(str(r.kg).trim() || '0'), reps = Math.round(parseNum(r.reps));
+      if (kg >= 0 && kg <= 1000 && reps >= 1 && reps <= 100) out.push({ ex, kg, reps, t: Date.now() });
+    });
+  }
+  return out;
+}
 function finishWorkout() {
   const a = S.active;
+  const pend = pendingSets(a);
+  if (pend.length && confirm(`${pend.length} ${pend.length === 1 ? 'Satz ist' : 'Sätze sind'} eingetragen, aber nicht abgehakt. Mitspeichern?`)) {
+    for (const s of pend) {
+      const prev = Math.max(0, ...allSets(s.ex).map(x => x.kg));
+      if (prev > 0 && s.kg > prev) s.pr = true;
+      a.sets.push(s);
+    }
+    save();
+  }
   if (!a.sets.length) {
-    if (!confirm('Keine Sätze erfasst. Training verwerfen?')) return;
+    if (!confirm('Kein Satz abgehakt. Das Training wird NICHT gespeichert. Wirklich verwerfen?')) return;
     S.active = null; save(); stopTicker(); releaseWake(); render(); return;
   }
   if (!confirm('Training beenden und speichern?')) return;
